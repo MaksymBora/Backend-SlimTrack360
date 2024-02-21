@@ -166,7 +166,7 @@ const googleAuth = async (req, res) => {
   }
 
   res.redirect(
-    `https://maksymbora.github.io/team-project-SlimTrack360/verify?searchQuery=${verificationToken}`,
+    `https://slimtrack360.site/verify?searchQuery=${verificationToken}`,
   );
 };
 
