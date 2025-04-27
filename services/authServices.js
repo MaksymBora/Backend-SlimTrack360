@@ -13,44 +13,84 @@ import { documentSucssesfullVerification } from '../helpers/documentSucssesfullV
 const { SECRET_KEY, BASE_URL } = process.env;
 
 const signUp = async body => {
-  const { email, password } = body;
+  try {
+    console.log('SignUp service started with body:', body); 
+    const { email, password } = body;
 
-  const user = await User.findOne({ email: email.toLowerCase() });
+    console.log('Checking for existing user with email:', email);
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (user) throw HttpError(409, `Email "${email}" in use`);
 
-  if (user) throw HttpError(409, `Email "${email}" in use`);
+    console.log('Calculating daily norms');
+    const dailyGoalWater = dayNormaWater(body);
+    const dailyGoalCalories = determinationDailyLevel(body);
+    const { protein, fat, carbonohidrates } = calculateMacros(body, dailyGoalCalories);
+    console.log('Norms calculated:', { dailyGoalWater, dailyGoalCalories, protein, fat, carbonohidrates });
 
-  const dailyGoalWater = dayNormaWater(body);
-  const dailyGoalCalories = determinationDailyLevel(body);
-  const { protein, fat, carbonohidrates } = calculateMacros(
-    body,
-    dailyGoalCalories,
-  );
+    console.log('Hashing password');
+    const hashPassword = await bcryptjs.hash(password, 10);
 
-  const hashPassword = await bcryptjs.hash(password, 10);
-  const date = new Date();
-  const verificationToken = nanoid();
+    console.log('Creating user in database');
+    const date = new Date();
+    const newUser = await User.create({
+      ...body,
+      email: email.toLowerCase(),
+      password: hashPassword,
+      verify: true, 
+      date: date.getDate(),
+      dailyGoalWater,
+      dailyGoalCalories,
+      dailyGoalElements: { protein, fat, carbonohidrates },
+    });
+    console.log('User created:', newUser);
 
-  const document = generateVerificationEmailHTML(verificationToken);
-
-  const verifyEmail = {
-    to: `${email}`,
-    subject: 'Verify email!',
-    html: `${document}`,
-  };
-
-  await sendEmail(verifyEmail);
-
-  return await User.create({
-    ...body,
-    email: email.toLowerCase(),
-    password: hashPassword,
-    verificationToken,
-    date: date.getDate(),
-    dailyGoalWater,
-    dailyGoalCalories,
-    dailyGoalElements: { protein, fat, carbonohidrates },
-  });
+    return newUser;
+  } catch (err) {
+    console.error('SignUp service error:', err.stack);
+    throw HttpError(err.status || 500, err.message || 'Registration failed');
+  }
 };
+
+// const signUp = async body => {
+//   console.log('SignUp service started with body:', body);
+//   const { email, password } = body;
+
+//   const user = await User.findOne({ email: email.toLowerCase() });
+
+//   if (user) throw HttpError(409, `Email "${email}" in use`);
+
+//   const dailyGoalWater = dayNormaWater(body);
+//   const dailyGoalCalories = determinationDailyLevel(body);
+//   const { protein, fat, carbonohidrates } = calculateMacros(
+//     body,
+//     dailyGoalCalories,
+//   );
+
+//   const hashPassword = await bcryptjs.hash(password, 10);
+//   const date = new Date();
+//   const verificationToken = nanoid();
+
+//   const document = generateVerificationEmailHTML(verificationToken);
+
+//   const verifyEmail = {
+//     to: `${email}`,
+//     subject: 'Verify email!',
+//     html: `${document}`,
+//   };
+
+//   await sendEmail(verifyEmail);
+
+//   return await User.create({
+//     ...body,
+//     email: email.toLowerCase(),
+//     password: hashPassword,
+//     verificationToken,
+//     date: date.getDate(),
+//     dailyGoalWater,
+//     dailyGoalCalories,
+//     dailyGoalElements: { protein, fat, carbonohidrates },
+//   });
+// };
 
 // -------------- Log In -------------- //
 const signIn = async body => {

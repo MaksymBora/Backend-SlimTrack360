@@ -16,6 +16,7 @@ const { SECRET_KEY } = process.env;
 const { BASE_URL } = process.env;
 
 const signUp = async (req, res) => {
+  
   const newUser = await authServices.signUp(req.body);
 
   // ------ Add weight in userWeight Model ----- //
